@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "gaz a Bobo" },
+      { name: "description", content: "Gas Finder Now locates butane gas vendors, displays real-time stock, and facilitates delivery orders." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "gaz a Bobo" },
+      { property: "og:description", content: "Gas Finder Now locates butane gas vendors, displays real-time stock, and facilitates delivery orders." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "gaz a Bobo" },
+      { name: "twitter:description", content: "Gas Finder Now locates butane gas vendors, displays real-time stock, and facilitates delivery orders." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f4b88eb9-9a0c-471b-83da-a14e962093f9/id-preview-31c18a5f--32ff2922-ecf7-4f5c-aa37-b26f6d2548f2.lovable.app-1782565273531.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f4b88eb9-9a0c-471b-83da-a14e962093f9/id-preview-31c18a5f--32ff2922-ecf7-4f5c-aa37-b26f6d2548f2.lovable.app-1782565273531.png" },
     ],
     links: [
       {
