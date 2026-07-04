@@ -1,4 +1,5 @@
-import { createServerFn, getRequest } from "@tanstack/react-start";
+import { createServerFn } from "@tanstack/react-start";
+import { getStartContext } from "@tanstack/start-storage-context";
 import { z } from "zod";
 import type { Vendor } from "@/lib/vendors";
 
@@ -82,10 +83,10 @@ async function callMcpTool(origin: string, name: string, args: Record<string, un
 
 function getOrigin(): string {
   try {
-    const req = getRequest();
-    if (req?.url) return new URL(req.url).origin;
+    const ctx = getStartContext({ throwIfNotFound: false });
+    if (ctx?.request?.url) return new URL(ctx.request.url).origin;
   } catch {
-    // getRequest() may not be available in all contexts.
+    // context may not be available at import time
   }
   return process.env.LOVABLE_APP_URL ?? "http://localhost:8080";
 }
