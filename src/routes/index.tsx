@@ -272,10 +272,10 @@ function Index() {
         </div>
       </footer>
 
-      {/* VENDOR DETAIL SHEET */}
-      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
+      {/* VENDOR DETAIL SHEET — fetched via MCP get_vendor */}
+      <Sheet open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-          {selected && <VendorDetail vendor={selected} />}
+          {selectedId && <VendorDetailLoader id={selectedId} />}
         </SheetContent>
       </Sheet>
     </div>
