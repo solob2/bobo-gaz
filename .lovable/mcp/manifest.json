@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "gaz-bobo-mcp",
+      "version": "0.1.0",
+      "title": "Gaz à Bobo MCP"
+    },
+    "tools": [
+      {
+        "name": "list_vendors",
+        "title": "List gas vendors",
+        "description": "List butane gas vendors in Bobo-Dioulasso. Optionally filter by quartier, brand, or stock level.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "quartier": {
+              "description": "Filter by neighborhood (quartier).",
+              "type": "string"
+            },
+            "brand": {
+              "description": "Filter by brand (e.g. Sodigaz, Total Énergies).",
+              "type": "string"
+            },
+            "stock": {
+              "description": "Filter by stock level: high, low, or out.",
+              "type": "string",
+              "enum": [
+                "high",
+                "low",
+                "out"
+              ]
+            },
+            "delivery": {
+              "description": "If true, only vendors offering delivery.",
+              "type": "boolean"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_vendor",
+        "title": "Get vendor details",
+        "description": "Get full details for a single gas vendor by ID, including bottles and contact info.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Vendor ID, e.g. 'v1'."
+            }
+          },
+          "required": [
+            "id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "find_nearest_vendors",
+        "title": "Find nearest vendors",
+        "description": "Find gas vendors nearest to a lat/lng in Bobo-Dioulasso, optionally requiring a specific bottle size in stock.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "lat": {
+              "type": "number",
+              "description": "Latitude."
+            },
+            "lng": {
+              "type": "number",
+              "description": "Longitude."
+            },
+            "bottleSize": {
+              "description": "Require this bottle size available.",
+              "type": "string",
+              "enum": [
+                "3kg",
+                "6kg",
+                "12.5kg",
+                "38kg"
+              ]
+            },
+            "limit": {
+              "default": 5,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20
+            },
+            "inStockOnly": {
+              "default": true,
+              "description": "Exclude vendors marked out of stock.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "lat",
+            "lng"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
