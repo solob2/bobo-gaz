@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState, useEffect } from "react";
+import { queryOptions, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { Phone, MessageCircle, MapPin, Clock, Filter, Flame, Truck, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,14 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { VENDORS, QUARTIERS, BRANDS, stockLabel, type Vendor, type StockLevel } from "@/lib/vendors";
+import { QUARTIERS, BRANDS, stockLabel, type Vendor, type StockLevel } from "@/lib/vendors";
+import { listVendorsViaMcp, getVendorViaMcp } from "@/lib/mcp-client.functions";
+
+const vendorsQueryOptions = queryOptions({
+  queryKey: ["mcp", "list_vendors"],
+  queryFn: () => listVendorsViaMcp({ data: {} }),
+  staleTime: 30_000,
+});
 
 const VendorMap = lazy(() =>
   import("@/components/VendorMap").then((m) => ({ default: m.VendorMap })),
@@ -33,7 +41,13 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(vendorsQueryOptions),
   component: Index,
+  errorComponent: ({ error }) => (
+    <div className="p-8 text-center text-sm text-destructive">
+      Erreur de chargement : {error.message}
+    </div>
+  ),
 });
 
 const STOCK_COLORS: Record<StockLevel, string> = {
@@ -52,8 +66,11 @@ function Index() {
   const [stockOnly, setStockOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const { data: listData } = useSuspenseQuery(vendorsQueryOptions);
+  const vendors: Vendor[] = listData.vendors;
+
   const filtered = useMemo(() => {
-    return VENDORS.filter((v) => {
+    return vendors.filter((v) => {
       if (quartier !== "all" && v.quartier !== quartier) return false;
       if (brand !== "all" && v.brand !== brand) return false;
       if (stockOnly && v.stock === "out") return false;
@@ -68,15 +85,14 @@ function Index() {
       }
       return true;
     });
-  }, [search, quartier, brand, stockOnly]);
+  }, [vendors, search, quartier, brand, stockOnly]);
 
-  const selected = filtered.find((v) => v.id === selectedId) ?? null;
   const stats = useMemo(() => {
-    const high = VENDORS.filter((v) => v.stock === "high").length;
-    const low = VENDORS.filter((v) => v.stock === "low").length;
-    const out = VENDORS.filter((v) => v.stock === "out").length;
-    return { total: VENDORS.length, high, low, out };
-  }, []);
+    const high = vendors.filter((v) => v.stock === "high").length;
+    const low = vendors.filter((v) => v.stock === "low").length;
+    const out = vendors.filter((v) => v.stock === "out").length;
+    return { total: vendors.length, high, low, out };
+  }, [vendors]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -256,10 +272,10 @@ function Index() {
         </div>
       </footer>
 
-      {/* VENDOR DETAIL SHEET */}
-      <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
+      {/* VENDOR DETAIL SHEET — fetched via MCP get_vendor */}
+      <Sheet open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-          {selected && <VendorDetail vendor={selected} />}
+          {selectedId && <VendorDetailLoader id={selectedId} />}
         </SheetContent>
       </Sheet>
     </div>
@@ -322,6 +338,29 @@ function VendorRow({
       </div>
     </button>
   );
+}
+
+function VendorDetailLoader({ id }: { id: string }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["mcp", "get_vendor", id],
+    queryFn: () => getVendorViaMcp({ data: { id } }),
+    staleTime: 30_000,
+  });
+  if (isLoading) {
+    return (
+      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+        Chargement du vendeur…
+      </div>
+    );
+  }
+  if (error || !data?.vendor) {
+    return (
+      <div className="p-6 text-sm text-destructive">
+        Impossible de charger ce vendeur.
+      </div>
+    );
+  }
+  return <VendorDetail vendor={data.vendor} />;
 }
 
 function VendorDetail({ vendor }: { vendor: Vendor }) {
