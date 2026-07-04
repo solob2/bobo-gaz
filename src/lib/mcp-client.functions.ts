@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { Vendor } from "@/lib/vendors";
 
 // Minimal MCP Streamable HTTP client. Handles initialize handshake, tracks
 // the session ID, and parses either JSON or SSE responses.
@@ -100,7 +101,7 @@ export const listVendorsViaMcp = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const result = (await callMcpTool(getOrigin(), "list_vendors", data)) as {
       count: number;
-      vendors: unknown[];
+      vendors: Vendor[];
     };
     return result;
   });
@@ -109,7 +110,7 @@ export const getVendorViaMcp = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
     const result = (await callMcpTool(getOrigin(), "get_vendor", { id: data.id })) as {
-      vendor: unknown;
+      vendor: Vendor;
     };
     return result;
   });
