@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, getRequest } from "@tanstack/react-start";
 import { z } from "zod";
 import type { Vendor } from "@/lib/vendors";
 
@@ -81,12 +81,13 @@ async function callMcpTool(origin: string, name: string, args: Record<string, un
 }
 
 function getOrigin(): string {
-  const req = (globalThis as { LOVABLE_REQUEST?: Request }).LOVABLE_REQUEST;
-  // On the server we build an absolute URL from the incoming request. On the
-  // client this server fn is invoked via RPC, so we never hit this branch.
-  const host = process.env.LOVABLE_APP_HOST ?? process.env.HOST ?? "localhost:8080";
-  const proto = host.startsWith("localhost") ? "http" : "https";
-  return req ? new URL(req.url).origin : `${proto}://${host}`;
+  try {
+    const req = getRequest();
+    if (req?.url) return new URL(req.url).origin;
+  } catch {
+    // getRequest() may not be available in all contexts.
+  }
+  return process.env.LOVABLE_APP_URL ?? "http://localhost:8080";
 }
 
 const listInput = z.object({
