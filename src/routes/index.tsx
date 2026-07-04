@@ -340,6 +340,29 @@ function VendorRow({
   );
 }
 
+function VendorDetailLoader({ id }: { id: string }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["mcp", "get_vendor", id],
+    queryFn: () => getVendorViaMcp({ data: { id } }),
+    staleTime: 30_000,
+  });
+  if (isLoading) {
+    return (
+      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+        Chargement du vendeur…
+      </div>
+    );
+  }
+  if (error || !data?.vendor) {
+    return (
+      <div className="p-6 text-sm text-destructive">
+        Impossible de charger ce vendeur.
+      </div>
+    );
+  }
+  return <VendorDetail vendor={data.vendor} />;
+}
+
 function VendorDetail({ vendor }: { vendor: Vendor }) {
   const tel = `tel:+${vendor.phone}`;
   const wa = `https://wa.me/${vendor.whatsapp}?text=${encodeURIComponent(
