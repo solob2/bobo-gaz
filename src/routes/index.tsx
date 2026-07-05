@@ -386,13 +386,13 @@ function VendorDetailLoader({ id }: { id: string }) {
 }
 
 function VendorDetail({ vendor }: { vendor: Vendor }) {
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const tel = `tel:+${vendor.phone}`;
   const wa = `https://wa.me/${vendor.whatsapp}?text=${encodeURIComponent(
     `Bonjour, je vous contacte via GazMap Bobo. Avez-vous du gaz disponible ?`,
   )}`;
-  const order = `https://wa.me/${vendor.whatsapp}?text=${encodeURIComponent(
-    `Bonjour, je souhaite commander une livraison de gaz (via GazMap Bobo).`,
-  )}`;
+  const hasAvailable = vendor.bottles.some((b) => b.available);
+
   return (
     <>
       <SheetHeader>
@@ -408,22 +408,28 @@ function VendorDetail({ vendor }: { vendor: Vendor }) {
 
       <div className="mt-5 space-y-5">
         <div className="grid grid-cols-2 gap-2">
-          <Button asChild>
+          <Button asChild variant="outline">
             <a href={tel}><Phone className="mr-1 h-4 w-4" /> Appeler</a>
           </Button>
-          <Button asChild variant="secondary" className="bg-success text-success-foreground hover:bg-success/90">
+          <Button asChild variant="outline" className="border-success/40 text-success hover:bg-success/10">
             <a href={wa} target="_blank" rel="noreferrer">
               <MessageCircle className="mr-1 h-4 w-4" /> WhatsApp
             </a>
           </Button>
         </div>
 
-        {vendor.delivery && (
-          <Button asChild variant="outline" className="w-full">
-            <a href={order} target="_blank" rel="noreferrer">
-              <Truck className="mr-1 h-4 w-4" /> Demander une livraison
-            </a>
+        {hasAvailable && !checkoutOpen && (
+          <Button onClick={() => setCheckoutOpen(true)} className="w-full">
+            <CreditCard className="mr-1 h-4 w-4" />
+            {vendor.delivery ? "Commander & payer (livraison)" : "Commander & payer"}
           </Button>
+        )}
+
+        {checkoutOpen && (
+          <div className="rounded-md border border-border bg-card p-4">
+            <h4 className="mb-3 text-sm font-semibold">Passer commande</h4>
+            <CheckoutForm vendor={vendor} onClose={() => setCheckoutOpen(false)} />
+          </div>
         )}
 
         <Separator />
