@@ -14,7 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      orders: {
+        Row: {
+          amount: number
+          bottle_size: string
+          cinetpay_last_event: Json | null
+          cinetpay_operator_id: string | null
+          cinetpay_payment_method: string | null
+          cinetpay_payment_url: string | null
+          cinetpay_transaction_id: string
+          created_at: string
+          currency: string
+          customer_address: string
+          customer_name: string
+          customer_phone: string
+          delivery_fee: number
+          id: string
+          notes: string | null
+          paid_at: string | null
+          quantity: number
+          status: string
+          unit_price: number
+          updated_at: string
+          vendor_id: string
+          vendor_name: string
+          vendor_phone: string
+          vendor_whatsapp: string
+        }
+        Insert: {
+          amount: number
+          bottle_size: string
+          cinetpay_last_event?: Json | null
+          cinetpay_operator_id?: string | null
+          cinetpay_payment_method?: string | null
+          cinetpay_payment_url?: string | null
+          cinetpay_transaction_id: string
+          created_at?: string
+          currency?: string
+          customer_address: string
+          customer_name: string
+          customer_phone: string
+          delivery_fee?: number
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          quantity: number
+          status?: string
+          unit_price: number
+          updated_at?: string
+          vendor_id: string
+          vendor_name: string
+          vendor_phone: string
+          vendor_whatsapp: string
+        }
+        Update: {
+          amount?: number
+          bottle_size?: string
+          cinetpay_last_event?: Json | null
+          cinetpay_operator_id?: string | null
+          cinetpay_payment_method?: string | null
+          cinetpay_payment_url?: string | null
+          cinetpay_transaction_id?: string
+          created_at?: string
+          currency?: string
+          customer_address?: string
+          customer_name?: string
+          customer_phone?: string
+          delivery_fee?: number
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          quantity?: number
+          status?: string
+          unit_price?: number
+          updated_at?: string
+          vendor_id?: string
+          vendor_name?: string
+          vendor_phone?: string
+          vendor_whatsapp?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
