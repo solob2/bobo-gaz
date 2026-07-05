@@ -38,8 +38,7 @@ export function CheckoutForm({ vendor, onClose }: { vendor: Vendor; onClose: () 
   const total = subtotal + deliveryFee;
 
   const mutation = useMutation({
-    mutationFn: (input: Parameters<typeof initOrderPayment>[0]["data"]) =>
-      initOrderPayment({ data: input }),
+    mutationFn: (input: InitOrderPaymentInput) => initOrderPayment({ data: input }),
     onSuccess: ({ paymentUrl }) => {
       // Redirection vers la page de paiement CinetPay.
       window.location.href = paymentUrl;
