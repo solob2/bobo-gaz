@@ -11,7 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import type { Vendor } from "@/lib/vendors";
-import { initOrderPayment } from "@/lib/payments.functions";
+import { initOrderPayment, type InitOrderPaymentInput } from "@/lib/payments.functions";
 
 // Frais de livraison fixes par vendeur (miroir client de getDeliveryFee).
 function feeForVendor(v: Vendor): number {
