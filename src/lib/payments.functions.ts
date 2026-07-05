@@ -175,7 +175,7 @@ export const refreshOrderStatus = createServerFn({ method: "POST" })
           status: newStatus,
           cinetpay_payment_method: result.paymentMethod ?? null,
           cinetpay_operator_id: result.operatorId ?? null,
-          cinetpay_last_event: result.raw as object,
+          cinetpay_last_event: result.raw as never,
           paid_at: newStatus === "paid" ? new Date().toISOString() : null,
         })
         .eq("id", order.id);
