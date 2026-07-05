@@ -48,7 +48,7 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(vendorsQueryOptions),
+  loader: ({ context }) => context.queryClient.ensureQueryData(vendorsQueryOptions()),
   component: Index,
   errorComponent: ({ error }) => (
     <div className="p-8 text-center text-sm text-destructive">
@@ -70,36 +70,49 @@ function Index() {
   const [search, setSearch] = useState("");
   const [quartier, setQuartier] = useState<string>("all");
   const [brand, setBrand] = useState<string>("all");
-  const [stockOnly, setStockOnly] = useState(false);
+  const [stockFilter, setStockFilter] = useState<"all" | "high" | "low" | "out" | "inStock">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const { data: listData } = useSuspenseQuery(vendorsQueryOptions);
+  // Filters sent to MCP. "inStock" is a UI-only convenience (any non-out).
+  const mcpFilters: VendorFilters = useMemo(() => {
+    const f: VendorFilters = {};
+    if (quartier !== "all") f.quartier = quartier;
+    if (brand !== "all") f.brand = brand;
+    if (stockFilter === "high" || stockFilter === "low" || stockFilter === "out") {
+      f.stock = stockFilter;
+    }
+    return f;
+  }, [quartier, brand, stockFilter]);
+
+  // Unfiltered list feeds the header stats.
+  const { data: allData } = useSuspenseQuery(vendorsQueryOptions());
+  // Filtered list drives the vendor rows + map.
+  const { data: listData } = useSuspenseQuery(vendorsQueryOptions(mcpFilters));
+
   const vendors: Vendor[] = listData.vendors;
+  const allVendors: Vendor[] = allData.vendors;
 
   const filtered = useMemo(() => {
     return vendors.filter((v) => {
-      if (quartier !== "all" && v.quartier !== quartier) return false;
-      if (brand !== "all" && v.brand !== brand) return false;
-      if (stockOnly && v.stock === "out") return false;
-      if (search) {
-        const s = search.toLowerCase();
-        if (
-          !v.name.toLowerCase().includes(s) &&
-          !v.quartier.toLowerCase().includes(s) &&
-          !v.brand.toLowerCase().includes(s)
-        )
-          return false;
-      }
-      return true;
+      // "inStock" convenience — server side we asked for everything, filter here.
+      if (stockFilter === "inStock" && v.stock === "out") return false;
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return (
+        v.name.toLowerCase().includes(s) ||
+        v.quartier.toLowerCase().includes(s) ||
+        v.brand.toLowerCase().includes(s)
+      );
     });
-  }, [vendors, search, quartier, brand, stockOnly]);
+  }, [vendors, search, stockFilter]);
 
   const stats = useMemo(() => {
-    const high = vendors.filter((v) => v.stock === "high").length;
-    const low = vendors.filter((v) => v.stock === "low").length;
-    const out = vendors.filter((v) => v.stock === "out").length;
-    return { total: vendors.length, high, low, out };
-  }, [vendors]);
+    const high = allVendors.filter((v) => v.stock === "high").length;
+    const low = allVendors.filter((v) => v.stock === "low").length;
+    const out = allVendors.filter((v) => v.stock === "out").length;
+    return { total: allVendors.length, high, low, out };
+  }, [allVendors]);
+
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
