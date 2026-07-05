@@ -203,19 +203,20 @@ function Index() {
                     </SelectContent>
                   </Select>
                 </div>
-                <label className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={stockOnly}
-                    onChange={(e) => setStockOnly(e.target.checked)}
-                    className="h-4 w-4 accent-[var(--color-primary)]"
-                  />
-                  Afficher uniquement les points en stock
-                </label>
-                {(quartier !== "all" || brand !== "all" || stockOnly || search) && (
+                <Select value={stockFilter} onValueChange={(v) => setStockFilter(v as typeof stockFilter)}>
+                  <SelectTrigger><SelectValue placeholder="Stock" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous stocks</SelectItem>
+                    <SelectItem value="inStock">En stock (hors rupture)</SelectItem>
+                    <SelectItem value="high">Stock élevé</SelectItem>
+                    <SelectItem value="low">Stock faible</SelectItem>
+                    <SelectItem value="out">Rupture</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(quartier !== "all" || brand !== "all" || stockFilter !== "all" || search) && (
                   <Button
                     variant="ghost" size="sm"
-                    onClick={() => { setQuartier("all"); setBrand("all"); setStockOnly(false); setSearch(""); }}
+                    onClick={() => { setQuartier("all"); setBrand("all"); setStockFilter("all"); setSearch(""); }}
                     className="w-full"
                   >
                     <X className="mr-1 h-3 w-3" /> Réinitialiser
