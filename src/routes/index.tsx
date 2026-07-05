@@ -15,11 +15,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { QUARTIERS, BRANDS, stockLabel, type Vendor, type StockLevel } from "@/lib/vendors";
 import { listVendorsViaMcp, getVendorViaMcp } from "@/lib/mcp-client.functions";
 
-const vendorsQueryOptions = queryOptions({
-  queryKey: ["mcp", "list_vendors"],
-  queryFn: () => listVendorsViaMcp({ data: {} }),
-  staleTime: 30_000,
-});
+type VendorFilters = {
+  quartier?: string;
+  brand?: string;
+  stock?: "high" | "low" | "out";
+};
+
+const vendorsQueryOptions = (filters: VendorFilters = {}) =>
+  queryOptions({
+    queryKey: ["mcp", "list_vendors", filters],
+    queryFn: () => listVendorsViaMcp({ data: filters }),
+    staleTime: 30_000,
+  });
 
 const VendorMap = lazy(() =>
   import("@/components/VendorMap").then((m) => ({ default: m.VendorMap })),
