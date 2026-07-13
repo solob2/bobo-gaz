@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState, useEffect } from "react";
 import { queryOptions, useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { Phone, MessageCircle, MapPin, Clock, Filter, Flame, Truck, Search, X, CreditCard } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Filter, Flame, Truck, Search, X, CreditCard, Navigation, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { QUARTIERS, BRANDS, stockLabel, type Vendor, type StockLevel } from "@/lib/vendors";
-import { listVendorsViaMcp, getVendorViaMcp } from "@/lib/mcp-client.functions";
+import { listVendorsViaMcp, getVendorViaMcp, findNearestVendorsViaMcp } from "@/lib/mcp-client.functions";
 import { CheckoutForm } from "@/components/CheckoutForm";
 
 type VendorFilters = {
@@ -74,6 +74,43 @@ function Index() {
   const [stockFilter, setStockFilter] = useState<"all" | "high" | "low" | "out" | "inStock">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Géolocalisation utilisateur + distances via MCP find_nearest_vendors.
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoState, setGeoState] = useState<"idle" | "loading" | "error">("idle");
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  const requestLocation = () => {
+    if (userPos) {
+      // Toggle off
+      setUserPos(null);
+      setGeoState("idle");
+      setGeoError(null);
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoState("error");
+      setGeoError("La géolocalisation n'est pas disponible sur cet appareil.");
+      return;
+    }
+    setGeoState("loading");
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoState("idle");
+      },
+      (err) => {
+        setGeoState("error");
+        setGeoError(
+          err.code === err.PERMISSION_DENIED
+            ? "Autorisation refusée. Activez la localisation pour trouver les vendeurs les plus proches."
+            : "Impossible d'obtenir votre position.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  };
+
   // Filters sent to MCP. "inStock" is a UI-only convenience (any non-out).
   const mcpFilters: VendorFilters = useMemo(() => {
     const f: VendorFilters = {};
@@ -93,9 +130,27 @@ function Index() {
   const vendors: Vendor[] = listData.vendors;
   const allVendors: Vendor[] = allData.vendors;
 
+  // MCP find_nearest_vendors → distances map. Enabled only when userPos is set.
+  const nearestQuery = useQuery({
+    queryKey: ["mcp", "find_nearest", userPos?.lat, userPos?.lng],
+    queryFn: () =>
+      findNearestVendorsViaMcp({
+        data: { lat: userPos!.lat, lng: userPos!.lng, limit: 50, inStockOnly: false },
+      }),
+    enabled: !!userPos,
+    staleTime: 60_000,
+  });
+
+  const distances = useMemo(() => {
+    const m = new Map<string, number>();
+    if (nearestQuery.data) {
+      for (const r of nearestQuery.data.results) m.set(r.vendor.id, r.distanceKm);
+    }
+    return m;
+  }, [nearestQuery.data]);
+
   const filtered = useMemo(() => {
-    return vendors.filter((v) => {
-      // "inStock" convenience — server side we asked for everything, filter here.
+    const base = vendors.filter((v) => {
       if (stockFilter === "inStock" && v.stock === "out") return false;
       if (!search) return true;
       const s = search.toLowerCase();
@@ -105,7 +160,13 @@ function Index() {
         v.brand.toLowerCase().includes(s)
       );
     });
-  }, [vendors, search, stockFilter]);
+    if (userPos && distances.size > 0) {
+      return [...base].sort(
+        (a, b) => (distances.get(a.id) ?? Infinity) - (distances.get(b.id) ?? Infinity),
+      );
+    }
+    return base;
+  }, [vendors, search, stockFilter, userPos, distances]);
 
   const stats = useMemo(() => {
     const high = allVendors.filter((v) => v.stock === "high").length;
@@ -175,6 +236,24 @@ function Index() {
                 Filtres
               </div>
               <div className="space-y-3">
+                <Button
+                  type="button"
+                  onClick={requestLocation}
+                  variant={userPos ? "default" : "outline"}
+                  className="w-full"
+                  disabled={geoState === "loading"}
+                >
+                  {geoState === "loading" ? (
+                    <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Localisation…</>
+                  ) : userPos ? (
+                    <><Navigation className="mr-1 h-4 w-4" /> Tri par proximité activé · désactiver</>
+                  ) : (
+                    <><Navigation className="mr-1 h-4 w-4" /> Trier par proximité (ma position)</>
+                  )}
+                </Button>
+                {geoError && (
+                  <p className="text-xs text-destructive">{geoError}</p>
+                )}
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -227,10 +306,15 @@ function Index() {
             </Card>
 
             <Card className="flex-1 overflow-hidden p-0">
-              <div className="border-b border-border px-4 py-3">
+              <div className="border-b border-border px-4 py-3 flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">
                   {filtered.length} point{filtered.length > 1 ? "s" : ""} de vente
                 </p>
+                {userPos && (
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <Navigation className="h-3 w-3" /> Trié par proximité
+                  </Badge>
+                )}
               </div>
               <ScrollArea className="h-[520px]">
                 <div className="divide-y divide-border">
@@ -240,6 +324,7 @@ function Index() {
                       vendor={v}
                       selected={v.id === selectedId}
                       onClick={() => setSelectedId(v.id)}
+                      distanceKm={distances.get(v.id)}
                     />
                   ))}
                   {filtered.length === 0 && (
@@ -328,8 +413,14 @@ function InfoCard({ icon, title, text }: { icon: React.ReactNode; title: string;
 }
 
 function VendorRow({
-  vendor, selected, onClick,
-}: { vendor: Vendor; selected: boolean; onClick: () => void }) {
+  vendor, selected, onClick, distanceKm,
+}: { vendor: Vendor; selected: boolean; onClick: () => void; distanceKm?: number }) {
+  const distanceLabel =
+    distanceKm === undefined
+      ? null
+      : distanceKm < 1
+        ? `${Math.round(distanceKm * 1000)} m`
+        : `${distanceKm.toFixed(1)} km`;
   return (
     <button
       onClick={onClick}
@@ -344,9 +435,14 @@ function VendorRow({
             {vendor.quartier} · {vendor.brand}
           </p>
         </div>
-        <Badge className={`shrink-0 ${STOCK_COLORS[vendor.stock]}`}>
-          {stockLabel(vendor.stock)}
-        </Badge>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <Badge className={STOCK_COLORS[vendor.stock]}>{stockLabel(vendor.stock)}</Badge>
+          {distanceLabel && (
+            <span className="flex items-center gap-1 text-xs font-medium text-primary">
+              <Navigation className="h-3 w-3" /> {distanceLabel}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
@@ -361,6 +457,8 @@ function VendorRow({
     </button>
   );
 }
+
+
 
 function VendorDetailLoader({ id }: { id: string }) {
   const { data, isLoading, error } = useQuery({

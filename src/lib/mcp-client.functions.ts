@@ -38,3 +38,37 @@ export const getVendorViaMcp = createServerFn({ method: "POST" })
     if (!vendor) throw new Error(`No vendor found with id ${data.id}`);
     return { vendor };
   });
+
+const nearestInput = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  bottleSize: z.enum(["3kg", "6kg", "12.5kg", "38kg"]).optional(),
+  limit: z.number().int().min(1).max(50).default(10),
+  inStockOnly: z.boolean().default(true),
+});
+
+function haversineKm(a: [number, number], b: [number, number]) {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+export const findNearestVendorsViaMcp = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => nearestInput.parse(data))
+  .handler(async ({ data }) => {
+    const ranked = VENDORS.filter((v) => !data.inStockOnly || v.stock !== "out")
+      .filter(
+        (v) =>
+          !data.bottleSize ||
+          v.bottles.some((b) => b.size === data.bottleSize && b.available),
+      )
+      .map((v) => ({ vendor: v, distanceKm: haversineKm([data.lat, data.lng], [v.lat, v.lng]) }))
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, data.limit);
+    return { count: ranked.length, results: ranked };
+  });
