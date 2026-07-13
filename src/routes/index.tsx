@@ -74,6 +74,43 @@ function Index() {
   const [stockFilter, setStockFilter] = useState<"all" | "high" | "low" | "out" | "inStock">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Géolocalisation utilisateur + distances via MCP find_nearest_vendors.
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoState, setGeoState] = useState<"idle" | "loading" | "error">("idle");
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  const requestLocation = () => {
+    if (userPos) {
+      // Toggle off
+      setUserPos(null);
+      setGeoState("idle");
+      setGeoError(null);
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoState("error");
+      setGeoError("La géolocalisation n'est pas disponible sur cet appareil.");
+      return;
+    }
+    setGeoState("loading");
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoState("idle");
+      },
+      (err) => {
+        setGeoState("error");
+        setGeoError(
+          err.code === err.PERMISSION_DENIED
+            ? "Autorisation refusée. Activez la localisation pour trouver les vendeurs les plus proches."
+            : "Impossible d'obtenir votre position.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  };
+
   // Filters sent to MCP. "inStock" is a UI-only convenience (any non-out).
   const mcpFilters: VendorFilters = useMemo(() => {
     const f: VendorFilters = {};
@@ -93,9 +130,27 @@ function Index() {
   const vendors: Vendor[] = listData.vendors;
   const allVendors: Vendor[] = allData.vendors;
 
+  // MCP find_nearest_vendors → distances map. Enabled only when userPos is set.
+  const nearestQuery = useQuery({
+    queryKey: ["mcp", "find_nearest", userPos?.lat, userPos?.lng],
+    queryFn: () =>
+      findNearestVendorsViaMcp({
+        data: { lat: userPos!.lat, lng: userPos!.lng, limit: 50, inStockOnly: false },
+      }),
+    enabled: !!userPos,
+    staleTime: 60_000,
+  });
+
+  const distances = useMemo(() => {
+    const m = new Map<string, number>();
+    if (nearestQuery.data) {
+      for (const r of nearestQuery.data.results) m.set(r.vendor.id, r.distanceKm);
+    }
+    return m;
+  }, [nearestQuery.data]);
+
   const filtered = useMemo(() => {
-    return vendors.filter((v) => {
-      // "inStock" convenience — server side we asked for everything, filter here.
+    const base = vendors.filter((v) => {
       if (stockFilter === "inStock" && v.stock === "out") return false;
       if (!search) return true;
       const s = search.toLowerCase();
@@ -105,7 +160,13 @@ function Index() {
         v.brand.toLowerCase().includes(s)
       );
     });
-  }, [vendors, search, stockFilter]);
+    if (userPos && distances.size > 0) {
+      return [...base].sort(
+        (a, b) => (distances.get(a.id) ?? Infinity) - (distances.get(b.id) ?? Infinity),
+      );
+    }
+    return base;
+  }, [vendors, search, stockFilter, userPos, distances]);
 
   const stats = useMemo(() => {
     const high = allVendors.filter((v) => v.stock === "high").length;
