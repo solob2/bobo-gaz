@@ -454,6 +454,11 @@ function VendorRow({
           </span>
         )}
       </div>
+    </button>
+  );
+}
+
+
 
 function VendorDetailLoader({ id }: { id: string }) {
   const { data, isLoading, error } = useQuery({
