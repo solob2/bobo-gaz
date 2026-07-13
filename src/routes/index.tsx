@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useMemo, useState, useEffect } from "react";
 import { queryOptions, useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { Phone, MessageCircle, MapPin, Clock, Filter, Flame, Truck, Search, X, CreditCard } from "lucide-react";
+import { Phone, MessageCircle, MapPin, Clock, Filter, Flame, Truck, Search, X, CreditCard, Navigation, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { QUARTIERS, BRANDS, stockLabel, type Vendor, type StockLevel } from "@/lib/vendors";
-import { listVendorsViaMcp, getVendorViaMcp } from "@/lib/mcp-client.functions";
+import { listVendorsViaMcp, getVendorViaMcp, findNearestVendorsViaMcp } from "@/lib/mcp-client.functions";
 import { CheckoutForm } from "@/components/CheckoutForm";
 
 type VendorFilters = {
