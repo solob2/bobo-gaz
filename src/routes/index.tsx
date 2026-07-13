@@ -236,6 +236,24 @@ function Index() {
                 Filtres
               </div>
               <div className="space-y-3">
+                <Button
+                  type="button"
+                  onClick={requestLocation}
+                  variant={userPos ? "default" : "outline"}
+                  className="w-full"
+                  disabled={geoState === "loading"}
+                >
+                  {geoState === "loading" ? (
+                    <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Localisation…</>
+                  ) : userPos ? (
+                    <><Navigation className="mr-1 h-4 w-4" /> Tri par proximité activé · désactiver</>
+                  ) : (
+                    <><Navigation className="mr-1 h-4 w-4" /> Trier par proximité (ma position)</>
+                  )}
+                </Button>
+                {geoError && (
+                  <p className="text-xs text-destructive">{geoError}</p>
+                )}
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
