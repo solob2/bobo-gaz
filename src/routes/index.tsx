@@ -306,10 +306,15 @@ function Index() {
             </Card>
 
             <Card className="flex-1 overflow-hidden p-0">
-              <div className="border-b border-border px-4 py-3">
+              <div className="border-b border-border px-4 py-3 flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold">
                   {filtered.length} point{filtered.length > 1 ? "s" : ""} de vente
                 </p>
+                {userPos && (
+                  <Badge variant="outline" className="gap-1 text-xs">
+                    <Navigation className="h-3 w-3" /> Trié par proximité
+                  </Badge>
+                )}
               </div>
               <ScrollArea className="h-[520px]">
                 <div className="divide-y divide-border">
@@ -319,6 +324,7 @@ function Index() {
                       vendor={v}
                       selected={v.id === selectedId}
                       onClick={() => setSelectedId(v.id)}
+                      distanceKm={distances.get(v.id)}
                     />
                   ))}
                   {filtered.length === 0 && (
