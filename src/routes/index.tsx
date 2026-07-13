@@ -413,8 +413,14 @@ function InfoCard({ icon, title, text }: { icon: React.ReactNode; title: string;
 }
 
 function VendorRow({
-  vendor, selected, onClick,
-}: { vendor: Vendor; selected: boolean; onClick: () => void }) {
+  vendor, selected, onClick, distanceKm,
+}: { vendor: Vendor; selected: boolean; onClick: () => void; distanceKm?: number }) {
+  const distanceLabel =
+    distanceKm === undefined
+      ? null
+      : distanceKm < 1
+        ? `${Math.round(distanceKm * 1000)} m`
+        : `${distanceKm.toFixed(1)} km`;
   return (
     <button
       onClick={onClick}
@@ -429,9 +435,14 @@ function VendorRow({
             {vendor.quartier} · {vendor.brand}
           </p>
         </div>
-        <Badge className={`shrink-0 ${STOCK_COLORS[vendor.stock]}`}>
-          {stockLabel(vendor.stock)}
-        </Badge>
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <Badge className={STOCK_COLORS[vendor.stock]}>{stockLabel(vendor.stock)}</Badge>
+          {distanceLabel && (
+            <span className="flex items-center gap-1 text-xs font-medium text-primary">
+              <Navigation className="h-3 w-3" /> {distanceLabel}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
@@ -443,9 +454,6 @@ function VendorRow({
           </span>
         )}
       </div>
-    </button>
-  );
-}
 
 function VendorDetailLoader({ id }: { id: string }) {
   const { data, isLoading, error } = useQuery({
