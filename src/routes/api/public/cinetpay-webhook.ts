@@ -61,6 +61,13 @@ export const Route = createFileRoute("/api/public/cinetpay-webhook")({
           })
           .eq("id", order.id);
 
+        await supabaseAdmin.from("app_events").insert({
+          level: newStatus === "failed" ? "error" : "info",
+          source: "cinetpay-webhook",
+          message: `Commande ${order.id.slice(0, 8)} → ${newStatus}`,
+          metadata: { orderId: order.id, transactionId, status: newStatus },
+        });
+
         return new Response("ok", { status: 200 });
       },
     },
