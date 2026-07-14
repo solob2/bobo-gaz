@@ -267,39 +267,9 @@ function AdminPage() {
           </TabsContent>
 
           <TabsContent value="logs">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" /> Événements applicatifs
-                </CardTitle>
-                <CardDescription>50 derniers événements (paiements, webhooks, erreurs)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1 font-mono text-xs max-h-[500px] overflow-y-auto">
-                  {(d?.recentEvents ?? []).map((e) => (
-                    <div
-                      key={e.id}
-                      className={`px-2 py-1 rounded flex gap-2 ${
-                        e.level === "error"
-                          ? "bg-red-50"
-                          : e.level === "warn"
-                          ? "bg-amber-50"
-                          : "bg-muted/40"
-                      }`}
-                    >
-                      <span className="text-muted-foreground shrink-0">{fmtDate(e.created_at)}</span>
-                      <span className="uppercase shrink-0 w-12">{e.level}</span>
-                      <span className="shrink-0 w-32 truncate">{e.source}</span>
-                      <span className="flex-1">{e.message}</span>
-                    </div>
-                  ))}
-                  {d && d.recentEvents.length === 0 && (
-                    <p className="text-muted-foreground text-center py-6">Aucun événement</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <LogsPanel />
           </TabsContent>
+
 
           <TabsContent value="security">
             <Card>
