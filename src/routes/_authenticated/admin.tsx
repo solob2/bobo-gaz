@@ -1,16 +1,26 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import {
   getAdminStatus,
   claimFirstAdmin,
   getAdminDashboard,
   getSystemHealth,
+  queryEvents,
 } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Table,
@@ -257,39 +267,9 @@ function AdminPage() {
           </TabsContent>
 
           <TabsContent value="logs">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="w-5 h-5" /> Événements applicatifs
-                </CardTitle>
-                <CardDescription>50 derniers événements (paiements, webhooks, erreurs)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-1 font-mono text-xs max-h-[500px] overflow-y-auto">
-                  {(d?.recentEvents ?? []).map((e) => (
-                    <div
-                      key={e.id}
-                      className={`px-2 py-1 rounded flex gap-2 ${
-                        e.level === "error"
-                          ? "bg-red-50"
-                          : e.level === "warn"
-                          ? "bg-amber-50"
-                          : "bg-muted/40"
-                      }`}
-                    >
-                      <span className="text-muted-foreground shrink-0">{fmtDate(e.created_at)}</span>
-                      <span className="uppercase shrink-0 w-12">{e.level}</span>
-                      <span className="shrink-0 w-32 truncate">{e.source}</span>
-                      <span className="flex-1">{e.message}</span>
-                    </div>
-                  ))}
-                  {d && d.recentEvents.length === 0 && (
-                    <p className="text-muted-foreground text-center py-6">Aucun événement</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <LogsPanel />
           </TabsContent>
+
 
           <TabsContent value="security">
             <Card>
@@ -414,5 +394,123 @@ function HealthRow({ label, ok, detail }: { label: string; ok: boolean | undefin
         ) : null}
       </div>
     </div>
+  );
+}
+
+function LogsPanel() {
+  const runQuery = useServerFn(queryEvents);
+  const [q, setQ] = useState("");
+  const [level, setLevel] = useState("all");
+  const [source, setSource] = useState("all");
+  const [sinceHours, setSinceHours] = useState<string>("168"); // 7j
+
+  const filters = { q: q.trim() || undefined, level, source, sinceHours: Number(sinceHours), limit: 200 };
+  const eventsQ = useQuery({
+    queryKey: ["admin-events", filters],
+    queryFn: () => runQuery({ data: filters }),
+    refetchInterval: 20000,
+  });
+
+  const events = eventsQ.data?.events ?? [];
+  const sources = eventsQ.data?.sources ?? [];
+
+  const resetFilters = () => {
+    setQ("");
+    setLevel("all");
+    setSource("all");
+    setSinceHours("168");
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Activity className="w-5 h-5" /> Événements applicatifs
+        </CardTitle>
+        <CardDescription>
+          Recherchez et filtrez pour retrouver un incident (max 200 résultats)
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+          <Input
+            placeholder="Rechercher dans le message…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="md:col-span-5"
+          />
+          <Select value={level} onValueChange={setLevel}>
+            <SelectTrigger className="md:col-span-2">
+              <SelectValue placeholder="Niveau" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous niveaux</SelectItem>
+              <SelectItem value="info">Info</SelectItem>
+              <SelectItem value="warn">Warn</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={source} onValueChange={setSource}>
+            <SelectTrigger className="md:col-span-2">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous types</SelectItem>
+              {sources.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sinceHours} onValueChange={setSinceHours}>
+            <SelectTrigger className="md:col-span-2">
+              <SelectValue placeholder="Période" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Dernière heure</SelectItem>
+              <SelectItem value="24">24 heures</SelectItem>
+              <SelectItem value="168">7 jours</SelectItem>
+              <SelectItem value="720">30 jours</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={resetFilters} className="md:col-span-1">
+            Reset
+          </Button>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {eventsQ.isFetching ? "Recherche…" : `${events.length} événement(s)`}
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => eventsQ.refetch()}>
+            Rafraîchir
+          </Button>
+        </div>
+
+        <div className="space-y-1 font-mono text-xs max-h-[500px] overflow-y-auto">
+          {events.map((e) => (
+            <div
+              key={e.id}
+              className={`px-2 py-1 rounded flex gap-2 ${
+                e.level === "error"
+                  ? "bg-red-50"
+                  : e.level === "warn"
+                  ? "bg-amber-50"
+                  : "bg-muted/40"
+              }`}
+            >
+              <span className="text-muted-foreground shrink-0">{fmtDate(e.created_at)}</span>
+              <span className="uppercase shrink-0 w-12">{e.level}</span>
+              <span className="shrink-0 w-32 truncate">{e.source}</span>
+              <span className="flex-1 break-all">{e.message}</span>
+            </div>
+          ))}
+          {!eventsQ.isFetching && events.length === 0 && (
+            <p className="text-muted-foreground text-center py-6">Aucun événement trouvé</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
