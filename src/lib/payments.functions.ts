@@ -116,12 +116,25 @@ export const initOrderPayment = createServerFn({ method: "POST" })
         .update({ cinetpay_payment_url: paymentUrl })
         .eq("id", order.id);
 
+      await supabaseAdmin.from("app_events").insert({
+        level: "info",
+        source: "payment-init",
+        message: `Paiement initié ${transactionId} — ${amount} XOF`,
+        metadata: { orderId: order.id, vendorId: vendor.id, amount },
+      });
+
       return { orderId: order.id, paymentUrl, paymentToken };
     } catch (err) {
       await supabaseAdmin
         .from("orders")
         .update({ status: "failed", cinetpay_last_event: { init_error: String(err) } })
         .eq("id", order.id);
+      await supabaseAdmin.from("app_events").insert({
+        level: "error",
+        source: "payment-init",
+        message: `Échec initialisation paiement: ${String(err).slice(0, 200)}`,
+        metadata: { orderId: order.id, transactionId },
+      });
       throw err;
     }
   });
