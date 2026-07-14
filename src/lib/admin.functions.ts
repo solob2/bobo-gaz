@@ -178,3 +178,47 @@ export const getSystemHealth = createServerFn({ method: "GET" })
       },
     };
   });
+
+const queryEventsSchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  level: z.string().max(20).optional(),
+  source: z.string().max(60).optional(),
+  sinceHours: z.number().int().min(1).max(24 * 30).optional(),
+  limit: z.number().int().min(1).max(200).optional(),
+});
+
+export const queryEvents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => queryEventsSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let query = supabaseAdmin
+      .from("app_events")
+      .select("id, level, source, message, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 100);
+
+    if (data.level && data.level !== "all") query = query.eq("level", data.level);
+    if (data.source && data.source !== "all") query = query.eq("source", data.source);
+    if (data.sinceHours) {
+      const since = new Date(Date.now() - data.sinceHours * 3600 * 1000).toISOString();
+      query = query.gte("created_at", since);
+    }
+    if (data.q) query = query.ilike("message", `%${data.q}%`);
+
+    const { data: events, error } = await query;
+    if (error) throw new Error(error.message);
+
+    // Distinct sources for filter dropdown (from a wider recent window)
+    const { data: sourcesRows } = await supabaseAdmin
+      .from("app_events")
+      .select("source")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    const sources = Array.from(new Set((sourcesRows ?? []).map((r) => r.source))).sort();
+
+    return { events: events ?? [], sources };
+  });
+
