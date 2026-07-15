@@ -41,8 +41,10 @@ function getAppOrigin(): string {
 export const initOrderPayment = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => initSchema.parse(data))
   .handler(async ({ data }) => {
-    const vendor = VENDORS.find((v) => v.id === data.vendorId);
+    const { loadVendor } = await import("@/lib/vendors.server");
+    const vendor = await loadVendor(data.vendorId);
     if (!vendor) throw new Error("Vendeur introuvable.");
+
 
     const bottle = vendor.bottles.find((b) => b.size === data.bottleSize);
     if (!bottle) throw new Error("Bouteille indisponible chez ce vendeur.");
