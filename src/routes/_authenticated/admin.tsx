@@ -13,6 +13,13 @@ import {
   deleteAlertRule,
   testAlertRule,
 } from "@/lib/admin.functions";
+import {
+  listVendorAccountsAdmin,
+  listVendorsAdmin,
+  approveVendorAccount,
+  rejectVendorAccount,
+} from "@/lib/vendor.functions";
+
 
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
