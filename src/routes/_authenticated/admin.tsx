@@ -229,8 +229,10 @@ function AdminPage() {
             <TabsTrigger value="alert-rules">Règles d'alertes</TabsTrigger>
             <TabsTrigger value="security">Secrets & sécurité</TabsTrigger>
             <TabsTrigger value="health">Santé système</TabsTrigger>
-
+            <TabsTrigger value="vendors">Vendeurs</TabsTrigger>
           </TabsList>
+          <TabsContent value="vendors"><VendorAccountsPanel /></TabsContent>
+
 
           <TabsContent value="orders">
             <Card>
