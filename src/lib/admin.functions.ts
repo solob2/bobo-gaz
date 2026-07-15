@@ -222,3 +222,134 @@ export const queryEvents = createServerFn({ method: "POST" })
     return { events: events ?? [], sources };
   });
 
+const alertRuleSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(120),
+  enabled: z.boolean(),
+  level: z.enum(["all", "info", "warn", "error"]),
+  source: z.string().trim().max(60).optional().nullable(),
+  message_contains: z.string().trim().max(200).optional().nullable(),
+  threshold: z.number().int().min(1).max(10000),
+  window_minutes: z.number().int().min(1).max(60 * 24 * 30),
+});
+
+export const listAlertRules = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("alert_rules")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+
+    // Evaluate current status for each enabled rule
+    const results = await Promise.all(
+      (data ?? []).map(async (r) => {
+        if (!r.enabled) return { rule: r, matches: 0, triggered: false };
+        const since = new Date(Date.now() - r.window_minutes * 60 * 1000).toISOString();
+        let q = supabaseAdmin
+          .from("app_events")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", since);
+        if (r.level !== "all") q = q.eq("level", r.level);
+        if (r.source) q = q.eq("source", r.source);
+        if (r.message_contains) q = q.ilike("message", `%${r.message_contains}%`);
+        const { count } = await q;
+        const matches = count ?? 0;
+        return { rule: r, matches, triggered: matches >= r.threshold };
+      })
+    );
+    return { rules: results };
+  });
+
+export const upsertAlertRule = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => alertRuleSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const payload = {
+      name: data.name,
+      enabled: data.enabled,
+      level: data.level,
+      source: data.source || null,
+      message_contains: data.message_contains || null,
+      threshold: data.threshold,
+      window_minutes: data.window_minutes,
+      created_by: context.userId,
+    };
+    if (data.id) {
+      const { error } = await supabaseAdmin.from("alert_rules").update(payload).eq("id", data.id);
+      if (error) throw new Error(error.message);
+      return { ok: true, id: data.id };
+    }
+    const { data: inserted, error } = await supabaseAdmin
+      .from("alert_rules")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { ok: true, id: inserted.id };
+  });
+
+export const deleteAlertRule = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ id: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("alert_rules").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const testAlertRule = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    alertRuleSchema.omit({ id: true, enabled: true, name: true }).parse(data)
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const since = new Date(Date.now() - data.window_minutes * 60 * 1000).toISOString();
+    let q = supabaseAdmin
+      .from("app_events")
+      .select("id, level, source, message, created_at")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (data.level !== "all") q = q.eq("level", data.level);
+    if (data.source) q = q.eq("source", data.source);
+    if (data.message_contains) q = q.ilike("message", `%${data.message_contains}%`);
+    const { data: sample, error } = await q;
+    if (error) throw new Error(error.message);
+
+    // Get exact count
+    let cq = supabaseAdmin
+      .from("app_events")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since);
+    if (data.level !== "all") cq = cq.eq("level", data.level);
+    if (data.source) cq = cq.eq("source", data.source);
+    if (data.message_contains) cq = cq.ilike("message", `%${data.message_contains}%`);
+    const { count } = await cq;
+
+    // Emit a synthetic test event so the ops trail shows the check
+    await supabaseAdmin.from("app_events").insert({
+      level: "info",
+      source: "alert-rules",
+      message: `Test règle d'alerte: ${count ?? 0} correspondance(s) sur ${data.window_minutes}min (seuil ${data.threshold})`,
+      metadata: { data, matches: count ?? 0 },
+    });
+
+    return {
+      matches: count ?? 0,
+      threshold: data.threshold,
+      triggered: (count ?? 0) >= data.threshold,
+      sample: sample ?? [],
+    };
+  });
+
