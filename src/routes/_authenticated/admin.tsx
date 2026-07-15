@@ -226,8 +226,10 @@ function AdminPage() {
           <TabsList>
             <TabsTrigger value="orders">Commandes</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
+            <TabsTrigger value="alert-rules">Règles d'alertes</TabsTrigger>
             <TabsTrigger value="security">Secrets & sécurité</TabsTrigger>
             <TabsTrigger value="health">Santé système</TabsTrigger>
+
           </TabsList>
 
           <TabsContent value="orders">
