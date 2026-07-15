@@ -13,6 +13,13 @@ import {
   deleteAlertRule,
   testAlertRule,
 } from "@/lib/admin.functions";
+import {
+  listVendorAccountsAdmin,
+  listVendorsAdmin,
+  approveVendorAccount,
+  rejectVendorAccount,
+} from "@/lib/vendor.functions";
+
 
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -229,8 +236,10 @@ function AdminPage() {
             <TabsTrigger value="alert-rules">Règles d'alertes</TabsTrigger>
             <TabsTrigger value="security">Secrets & sécurité</TabsTrigger>
             <TabsTrigger value="health">Santé système</TabsTrigger>
-
+            <TabsTrigger value="vendors">Vendeurs</TabsTrigger>
           </TabsList>
+          <TabsContent value="vendors"><VendorAccountsPanel /></TabsContent>
+
 
           <TabsContent value="orders">
             <Card>
@@ -849,6 +858,87 @@ function AlertRulesPanel() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function VendorAccountsPanel() {
+  const list = useServerFn(listVendorAccountsAdmin);
+  const listV = useServerFn(listVendorsAdmin);
+  const approve = useServerFn(approveVendorAccount);
+  const reject = useServerFn(rejectVendorAccount);
+  const accounts = useQuery({ queryKey: ["vendor-accounts"], queryFn: () => list(), refetchInterval: 30_000 });
+  const vendors = useQuery({ queryKey: ["vendors-admin"], queryFn: () => listV() });
+  const [picks, setPicks] = useState<Record<string, string>>({});
+
+  const doApprove = async (accountId: string) => {
+    const vendorId = picks[accountId];
+    if (!vendorId) return toast.error("Choisissez un vendeur à lier.");
+    try {
+      await approve({ data: { accountId, vendorId } });
+      toast.success("Compte approuvé.");
+      accounts.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    }
+  };
+  const doReject = async (accountId: string) => {
+    try {
+      await reject({ data: { accountId } });
+      toast.success("Refusé.");
+      accounts.refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erreur");
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Comptes vendeurs</CardTitle>
+        <CardDescription>Approuvez les demandes et liez chaque compte à une fiche vendeur.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {accounts.isLoading ? <div>Chargement…</div> : (accounts.data ?? []).length === 0 ? (
+          <div className="text-sm text-muted-foreground">Aucune demande.</div>
+        ) : (
+          (accounts.data ?? []).map((a) => (
+            <div key={a.id} className="rounded-lg border p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-medium">{a.requested_name ?? "—"} <span className="text-xs text-muted-foreground">({a.email ?? "?"})</span></div>
+                  <div className="text-xs text-muted-foreground">
+                    {a.requested_quartier} · {a.requested_phone} · demandé {new Date(a.created_at).toLocaleDateString("fr-FR")}
+                  </div>
+                  {a.note && <div className="text-xs mt-1 italic">« {a.note} »</div>}
+                </div>
+                <Badge variant={a.status === "approved" ? "default" : a.status === "rejected" ? "destructive" : "secondary"}>
+                  {a.status}
+                </Badge>
+              </div>
+              {a.status === "approved" && a.vendor_name && (
+                <div className="text-xs text-emerald-700">✓ lié à <strong>{a.vendor_name}</strong> ({a.vendor_id})</div>
+              )}
+              {a.status === "pending" && (
+                <div className="flex gap-2 items-center">
+                  <select
+                    className="h-9 rounded-md border bg-background px-2 text-sm flex-1"
+                    value={picks[a.id] ?? ""}
+                    onChange={(e) => setPicks({ ...picks, [a.id]: e.target.value })}
+                  >
+                    <option value="">Lier à un vendeur…</option>
+                    {(vendors.data ?? []).map((v) => (
+                      <option key={v.id} value={v.id}>{v.name} — {v.quartier} ({v.id})</option>
+                    ))}
+                  </select>
+                  <Button size="sm" onClick={() => doApprove(a.id)}>Approuver</Button>
+                  <Button size="sm" variant="outline" onClick={() => doReject(a.id)}>Refuser</Button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

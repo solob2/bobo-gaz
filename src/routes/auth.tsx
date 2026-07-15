@@ -27,10 +27,18 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin" });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const { data: role } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.session.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      navigate({ to: role ? "/admin" : "/vendor" });
     });
   }, [navigate]);
+
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +48,7 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin + "/admin" },
+          options: { emailRedirectTo: window.location.origin + "/vendor" },
         });
         if (error) throw error;
         toast.success("Compte créé. Vérifiez votre email si la confirmation est activée.");
@@ -48,7 +56,18 @@ function AuthPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       }
-      navigate({ to: "/admin" });
+      const { data: sess } = await supabase.auth.getSession();
+      let dest: "/admin" | "/vendor" = "/vendor";
+      if (sess.session) {
+        const { data: role } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", sess.session.user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        if (role) dest = "/admin";
+      }
+      navigate({ to: dest });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erreur");
     } finally {
@@ -60,8 +79,9 @@ function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>{mode === "signin" ? "Connexion admin" : "Créer un compte admin"}</CardTitle>
+          <CardTitle>{mode === "signin" ? "Connexion" : "Créer un compte"}</CardTitle>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
