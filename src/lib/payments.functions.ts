@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { VENDORS, type Vendor } from "@/lib/vendors";
+import type { Vendor } from "@/lib/vendors";
+
 
 // Frais de livraison fixes par vendeur (déterministes, basés sur l'id).
 export function getDeliveryFee(vendor: Pick<Vendor, "id" | "delivery">): number {
