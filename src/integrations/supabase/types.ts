@@ -185,6 +185,116 @@ export type Database = {
         }
         Relationships: []
       }
+      vendor_accounts: {
+        Row: {
+          created_at: string
+          id: string
+          note: string | null
+          requested_name: string | null
+          requested_phone: string | null
+          requested_quartier: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          vendor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          requested_name?: string | null
+          requested_phone?: string | null
+          requested_quartier?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          vendor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string | null
+          requested_name?: string | null
+          requested_phone?: string | null
+          requested_quartier?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_accounts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          bottles: Json
+          brand: string
+          created_at: string
+          delivery: boolean
+          hours: string
+          id: string
+          is_open: boolean
+          lat: number
+          lng: number
+          name: string
+          phone: string
+          quartier: string
+          stock: string
+          type: string
+          updated_at: string
+          whatsapp: string
+        }
+        Insert: {
+          bottles?: Json
+          brand: string
+          created_at?: string
+          delivery?: boolean
+          hours?: string
+          id: string
+          is_open?: boolean
+          lat: number
+          lng: number
+          name: string
+          phone: string
+          quartier: string
+          stock?: string
+          type?: string
+          updated_at?: string
+          whatsapp: string
+        }
+        Update: {
+          bottles?: Json
+          brand?: string
+          created_at?: string
+          delivery?: boolean
+          hours?: string
+          id?: string
+          is_open?: boolean
+          lat?: number
+          lng?: number
+          name?: string
+          phone?: string
+          quartier?: string
+          stock?: string
+          type?: string
+          updated_at?: string
+          whatsapp?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -195,6 +305,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_vendor_owner: {
+        Args: { _user_id: string; _vendor_id: string }
         Returns: boolean
       }
     }
