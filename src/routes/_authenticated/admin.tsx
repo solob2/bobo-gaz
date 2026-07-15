@@ -36,17 +36,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Activity,
   AlertTriangle,
+  Bell,
   CheckCircle2,
   Database,
   KeyRound,
   LogOut,
+  Pencil,
+  Plus,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   XCircle,
+  Zap,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
