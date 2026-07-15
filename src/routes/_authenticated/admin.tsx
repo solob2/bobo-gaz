@@ -285,6 +285,12 @@ function AdminPage() {
             <LogsPanel />
           </TabsContent>
 
+          <TabsContent value="alert-rules">
+            <AlertRulesPanel />
+          </TabsContent>
+
+
+
 
           <TabsContent value="security">
             <Card>
