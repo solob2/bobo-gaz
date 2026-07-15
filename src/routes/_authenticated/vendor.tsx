@@ -96,13 +96,21 @@ function VendorPortal() {
           />
         ) : vendor ? (
           <ApprovedPanel
-            vendor={vendor}
+            vendor={{
+              id: vendor.id,
+              name: vendor.name,
+              quartier: vendor.quartier,
+              is_open: vendor.is_open,
+              stock: vendor.stock,
+              bottles: (vendor.bottles as unknown as Bottle[]) ?? [],
+            }}
             onSave={async (payload) => {
               await updateStock({ data: payload });
               toast.success("Stock mis à jour.");
               refetch();
             }}
           />
+
         ) : (
           <Card><CardContent className="py-8 text-center text-muted-foreground">Compte approuvé mais aucun vendeur lié. Contactez l'admin.</CardContent></Card>
         )}
