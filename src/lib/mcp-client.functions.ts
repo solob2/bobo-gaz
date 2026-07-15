@@ -1,11 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { VENDORS, type Vendor } from "@/lib/vendors";
+import type { Vendor } from "@/lib/vendors";
 
-// These server functions mirror the MCP `list_vendors` / `get_vendor` tools
-// but run the logic directly in-process. Doing a loopback fetch to `/mcp`
-// during SSR fails in the Worker runtime ("fetch failed"), so we skip HTTP.
-// The MCP endpoint itself stays available for external agents.
+// Server-side vendor reads go through the DB (see src/lib/vendors.server.ts).
+// This mirrors the MCP `list_vendors` / `get_vendor` / `find_nearest_vendors`
+// tools while running in-process to avoid loopback fetch during SSR.
 
 const listInput = z.object({
   quartier: z.string().optional(),
@@ -14,8 +13,8 @@ const listInput = z.object({
   delivery: z.boolean().optional(),
 });
 
-function filterVendors(f: z.infer<typeof listInput>): Vendor[] {
-  return VENDORS.filter(
+function filterVendors(all: Vendor[], f: z.infer<typeof listInput>): Vendor[] {
+  return all.filter(
     (v) =>
       (!f.quartier || v.quartier.toLowerCase() === f.quartier.toLowerCase()) &&
       (!f.brand || v.brand.toLowerCase() === f.brand.toLowerCase()) &&
@@ -27,14 +26,17 @@ function filterVendors(f: z.infer<typeof listInput>): Vendor[] {
 export const listVendorsViaMcp = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => listInput.parse(data ?? {}))
   .handler(async ({ data }) => {
-    const vendors = filterVendors(data);
+    const { loadVendors } = await import("@/lib/vendors.server");
+    const all = await loadVendors();
+    const vendors = filterVendors(all, data);
     return { count: vendors.length, vendors };
   });
 
 export const getVendorViaMcp = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ id: z.string().min(1) }).parse(data))
   .handler(async ({ data }) => {
-    const vendor = VENDORS.find((v) => v.id === data.id);
+    const { loadVendor } = await import("@/lib/vendors.server");
+    const vendor = await loadVendor(data.id);
     if (!vendor) throw new Error(`No vendor found with id ${data.id}`);
     return { vendor };
   });
@@ -61,7 +63,10 @@ function haversineKm(a: [number, number], b: [number, number]) {
 export const findNearestVendorsViaMcp = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => nearestInput.parse(data))
   .handler(async ({ data }) => {
-    const ranked = VENDORS.filter((v) => !data.inStockOnly || v.stock !== "out")
+    const { loadVendors } = await import("@/lib/vendors.server");
+    const all = await loadVendors();
+    const ranked = all
+      .filter((v) => !data.inStockOnly || v.stock !== "out")
       .filter(
         (v) =>
           !data.bottleSize ||
@@ -72,3 +77,4 @@ export const findNearestVendorsViaMcp = createServerFn({ method: "POST" })
       .slice(0, data.limit);
     return { count: ranked.length, results: ranked };
   });
+
