@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          level: string
+          message_contains: string | null
+          name: string
+          source: string | null
+          threshold: number
+          updated_at: string
+          window_minutes: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          level?: string
+          message_contains?: string | null
+          name: string
+          source?: string | null
+          threshold?: number
+          updated_at?: string
+          window_minutes?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          level?: string
+          message_contains?: string | null
+          name?: string
+          source?: string | null
+          threshold?: number
+          updated_at?: string
+          window_minutes?: number
+        }
+        Relationships: []
+      }
       app_events: {
         Row: {
           created_at: string
