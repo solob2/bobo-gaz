@@ -27,10 +27,18 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin" });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      const { data: role } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.session.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      navigate({ to: role ? "/admin" : "/vendor" });
     });
   }, [navigate]);
+
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
