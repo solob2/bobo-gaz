@@ -8,7 +8,12 @@ import {
   getAdminDashboard,
   getSystemHealth,
   queryEvents,
+  listAlertRules,
+  upsertAlertRule,
+  deleteAlertRule,
+  testAlertRule,
 } from "@/lib/admin.functions";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,17 +36,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Activity,
   AlertTriangle,
+  Bell,
   CheckCircle2,
   Database,
   KeyRound,
   LogOut,
+  Pencil,
+  Plus,
   RefreshCw,
   ShieldCheck,
+  Trash2,
   XCircle,
+  Zap,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/admin")({
   component: AdminPage,
@@ -213,8 +226,10 @@ function AdminPage() {
           <TabsList>
             <TabsTrigger value="orders">Commandes</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
+            <TabsTrigger value="alert-rules">Règles d'alertes</TabsTrigger>
             <TabsTrigger value="security">Secrets & sécurité</TabsTrigger>
             <TabsTrigger value="health">Santé système</TabsTrigger>
+
           </TabsList>
 
           <TabsContent value="orders">
@@ -269,6 +284,12 @@ function AdminPage() {
           <TabsContent value="logs">
             <LogsPanel />
           </TabsContent>
+
+          <TabsContent value="alert-rules">
+            <AlertRulesPanel />
+          </TabsContent>
+
+
 
 
           <TabsContent value="security">
@@ -514,3 +535,320 @@ function LogsPanel() {
     </Card>
   );
 }
+
+type RuleForm = {
+  id?: string;
+  name: string;
+  enabled: boolean;
+  level: "all" | "info" | "warn" | "error";
+  source: string;
+  message_contains: string;
+  threshold: number;
+  window_minutes: number;
+};
+
+const emptyRule: RuleForm = {
+  name: "",
+  enabled: true,
+  level: "error",
+  source: "",
+  message_contains: "",
+  threshold: 3,
+  window_minutes: 60,
+};
+
+function AlertRulesPanel() {
+  const list = useServerFn(listAlertRules);
+  const upsert = useServerFn(upsertAlertRule);
+  const remove = useServerFn(deleteAlertRule);
+  const test = useServerFn(testAlertRule);
+
+  const [form, setForm] = useState<RuleForm>(emptyRule);
+  const [testResult, setTestResult] = useState<{
+    matches: number;
+    threshold: number;
+    triggered: boolean;
+    sample: Array<{ id: string; level: string; source: string; message: string; created_at: string }>;
+  } | null>(null);
+
+  const listQ = useQuery({
+    queryKey: ["alert-rules"],
+    queryFn: () => list(),
+    refetchInterval: 30000,
+  });
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      upsert({
+        data: {
+          ...(form.id ? { id: form.id } : {}),
+          name: form.name,
+          enabled: form.enabled,
+          level: form.level,
+          source: form.source.trim() || null,
+          message_contains: form.message_contains.trim() || null,
+          threshold: Number(form.threshold),
+          window_minutes: Number(form.window_minutes),
+        },
+      }),
+    onSuccess: () => {
+      toast.success(form.id ? "Règle mise à jour" : "Règle créée");
+      setForm(emptyRule);
+      listQ.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
+
+  const testMut = useMutation({
+    mutationFn: () =>
+      test({
+        data: {
+          level: form.level,
+          source: form.source.trim() || null,
+          message_contains: form.message_contains.trim() || null,
+          threshold: Number(form.threshold),
+          window_minutes: Number(form.window_minutes),
+        },
+      }),
+    onSuccess: (res) => {
+      setTestResult(res);
+      toast[res.triggered ? "warning" : "success"](
+        res.triggered
+          ? `Alerte déclenchée: ${res.matches}/${res.threshold}`
+          : `OK: ${res.matches}/${res.threshold} correspondance(s)`
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => remove({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Règle supprimée");
+      listQ.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
+
+  const rules = listQ.data?.rules ?? [];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="w-5 h-5" /> {form.id ? "Modifier la règle" : "Nouvelle règle"}
+          </CardTitle>
+          <CardDescription>
+            Déclenche une alerte quand N événements correspondants surviennent dans la fenêtre.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label>Nom</Label>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Ex: Trop d'erreurs webhook CinetPay"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Niveau</Label>
+              <Select
+                value={form.level}
+                onValueChange={(v) => setForm({ ...form, level: v as RuleForm["level"] })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="info">Info</SelectItem>
+                  <SelectItem value="warn">Warn</SelectItem>
+                  <SelectItem value="error">Error</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Type d'événement (source)</Label>
+              <Input
+                value={form.source}
+                onChange={(e) => setForm({ ...form, source: e.target.value })}
+                placeholder="cinetpay-webhook (vide = tous)"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Le message contient</Label>
+            <Input
+              value={form.message_contains}
+              onChange={(e) => setForm({ ...form, message_contains: e.target.value })}
+              placeholder="Filtre optionnel (ex: timeout)"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Seuil (occurrences)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.threshold}
+                onChange={(e) => setForm({ ...form, threshold: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <Label>Fenêtre (minutes)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.window_minutes}
+                onChange={(e) => setForm({ ...form, window_minutes: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="rule-enabled"
+              checked={form.enabled}
+              onCheckedChange={(v) => setForm({ ...form, enabled: v })}
+            />
+            <Label htmlFor="rule-enabled">Activée</Label>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button
+              onClick={() => saveMut.mutate()}
+              disabled={saveMut.isPending || !form.name.trim()}
+            >
+              {form.id ? <Pencil className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+              {saveMut.isPending ? "…" : form.id ? "Mettre à jour" : "Créer"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => testMut.mutate()}
+              disabled={testMut.isPending}
+            >
+              <Zap className="w-4 h-4 mr-1" />
+              {testMut.isPending ? "…" : "Tester"}
+            </Button>
+            {form.id && (
+              <Button variant="ghost" onClick={() => setForm(emptyRule)}>
+                Annuler
+              </Button>
+            )}
+          </div>
+
+          {testResult && (
+            <div
+              className={`rounded-md border p-3 text-sm space-y-2 ${
+                testResult.triggered
+                  ? "border-amber-300 bg-amber-50"
+                  : "border-emerald-300 bg-emerald-50"
+              }`}
+            >
+              <div className="font-medium">
+                {testResult.triggered ? "🔔 Alerte déclenchée" : "✅ Sous le seuil"} —{" "}
+                {testResult.matches} / {testResult.threshold} correspondance(s)
+              </div>
+              {testResult.sample.length > 0 && (
+                <div className="max-h-40 overflow-y-auto space-y-1 font-mono text-xs">
+                  {testResult.sample.map((s) => (
+                    <div key={s.id} className="truncate">
+                      <span className="text-muted-foreground">{fmtDate(s.created_at)}</span>{" "}
+                      <span className="uppercase">[{s.level}]</span> {s.source}: {s.message}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Règles configurées ({rules.length})</CardTitle>
+          <CardDescription>Statut évalué en temps réel sur la fenêtre de chaque règle.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {rules.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Aucune règle. Créez-en une à gauche.
+            </p>
+          )}
+          {rules.map(({ rule, matches, triggered }) => (
+            <div
+              key={rule.id}
+              className={`border rounded-md p-3 space-y-1 ${
+                triggered ? "border-amber-400 bg-amber-50" : ""
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {rule.enabled ? (
+                    <Badge variant="default">ON</Badge>
+                  ) : (
+                    <Badge variant="secondary">OFF</Badge>
+                  )}
+                  <span className="font-medium truncate">{rule.name}</span>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setForm({
+                        id: rule.id,
+                        name: rule.name,
+                        enabled: rule.enabled,
+                        level: rule.level as RuleForm["level"],
+                        source: rule.source ?? "",
+                        message_contains: rule.message_contains ?? "",
+                        threshold: rule.threshold,
+                        window_minutes: rule.window_minutes,
+                      })
+                    }
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`Supprimer la règle "${rule.name}" ?`)) deleteMut.mutate(rule.id);
+                    }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                <span>niveau: {rule.level}</span>
+                {rule.source && <span>source: {rule.source}</span>}
+                {rule.message_contains && <span>msg~ {rule.message_contains}</span>}
+                <span>
+                  seuil: {rule.threshold} / {rule.window_minutes}min
+                </span>
+              </div>
+              {rule.enabled && (
+                <div className="text-xs">
+                  {triggered ? (
+                    <span className="text-amber-700 font-medium">
+                      🔔 {matches} événement(s) — au-dessus du seuil
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {matches} événement(s) — sous le seuil
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
