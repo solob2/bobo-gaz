@@ -314,7 +314,7 @@ function AdminPage() {
 
 
 
-          <TabsContent value="security">
+          <TabsContent value="secrets">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
