@@ -3,7 +3,12 @@
   "sdk_version": "0.20.0",
   "path": "/mcp",
   "auth": {
-    "type": "none"
+    "type": "oauth",
+    "issuer": "https://ksbudbdlixodyekxxabd.supabase.co/auth/v1",
+    "resource_name": "Gaz à Bobo MCP",
+    "accepted_audiences": [
+      "authenticated"
+    ]
   },
   "mcp": {
     "server": {
