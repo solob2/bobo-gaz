@@ -955,3 +955,412 @@ function VendorAccountsPanel() {
   );
 }
 
+const SEVERITY_ORDER: FindingSeverity[] = ["critical", "high", "medium", "low", "info"];
+const STATE_LABELS: Record<FindingState, string> = {
+  open: "Ouvert",
+  fixed: "Corrigé",
+  ignored: "Ignoré",
+  wont_fix: "Non résolu",
+};
+const SEVERITY_TONE: Record<FindingSeverity, string> = {
+  critical: "bg-red-100 text-red-800 border-red-300",
+  high: "bg-orange-100 text-orange-800 border-orange-300",
+  medium: "bg-amber-100 text-amber-800 border-amber-300",
+  low: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  info: "bg-slate-100 text-slate-700 border-slate-300",
+};
+const STATE_TONE: Record<FindingState, string> = {
+  open: "bg-red-50 text-red-700",
+  fixed: "bg-emerald-50 text-emerald-700",
+  ignored: "bg-slate-100 text-slate-600",
+  wont_fix: "bg-amber-50 text-amber-700",
+};
+
+type NewFindingRow = {
+  id: string;
+  title: string;
+  severity: FindingSeverity;
+  state: FindingState;
+  category: string;
+  description: string;
+};
+
+function SecurityPanel() {
+  const list = useServerFn(listSecurityScans);
+  const getOne = useServerFn(getSecurityScan);
+  const create = useServerFn(createSecurityScan);
+  const updateState = useServerFn(updateFindingState);
+  const remove = useServerFn(deleteSecurityScan);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showNew, setShowNew] = useState(false);
+  const [label, setLabel] = useState("");
+  const [notes, setNotes] = useState("");
+  const [rows, setRows] = useState<NewFindingRow[]>([]);
+
+  const listQ = useQuery({
+    queryKey: ["security-scans"],
+    queryFn: () => list(),
+    refetchInterval: 60000,
+  });
+
+  const detailQ = useQuery({
+    queryKey: ["security-scan", selectedId],
+    queryFn: () => getOne({ data: { id: selectedId! } }),
+    enabled: !!selectedId,
+  });
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      create({
+        data: {
+          label: label.trim() || null,
+          notes: notes.trim() || null,
+          findings: rows.map((r) => ({
+            id: r.id,
+            title: r.title.trim(),
+            severity: r.severity,
+            state: r.state,
+            category: r.category.trim() || null,
+            description: r.description.trim() || null,
+          })),
+        },
+      }),
+    onSuccess: (res) => {
+      toast.success("Scan enregistré");
+      setShowNew(false);
+      setLabel("");
+      setNotes("");
+      setRows([]);
+      setSelectedId(res.id);
+      listQ.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: (args: { findingId: string; state: FindingState; explanation?: string }) =>
+      updateState({
+        data: {
+          scanId: selectedId!,
+          findingId: args.findingId,
+          state: args.state,
+          explanation: args.explanation ?? null,
+        },
+      }),
+    onSuccess: () => {
+      detailQ.refetch();
+      listQ.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => remove({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Scan supprimé");
+      setSelectedId(null);
+      listQ.refetch();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Erreur"),
+  });
+
+  const scans = listQ.data ?? [];
+  const detail = detailQ.data;
+
+  const addRow = () =>
+    setRows((r) => [
+      ...r,
+      {
+        id: (globalThis.crypto?.randomUUID?.() ?? `f-${Date.now()}-${r.length}`) as string,
+        title: "",
+        severity: "medium",
+        state: "open",
+        category: "",
+        description: "",
+      },
+    ]);
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <Card className="lg:col-span-1">
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" /> Historique
+            </CardTitle>
+            <CardDescription>{scans.length} scan(s)</CardDescription>
+          </div>
+          <Button size="sm" onClick={() => setShowNew((v) => !v)}>
+            <Plus className="w-4 h-4 mr-1" /> Nouveau
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {showNew && (
+            <div className="border rounded-md p-3 space-y-2 bg-muted/30">
+              <Input
+                placeholder="Libellé (ex: Scan hebdomadaire)"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+              />
+              <Input
+                placeholder="Notes (optionnel)"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {rows.map((r, i) => (
+                  <div key={r.id} className="border rounded p-2 space-y-1 bg-background">
+                    <div className="flex gap-1">
+                      <Input
+                        placeholder="Titre"
+                        value={r.title}
+                        onChange={(e) => {
+                          const c = [...rows];
+                          c[i] = { ...r, title: e.target.value };
+                          setRows(c);
+                        }}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setRows(rows.filter((_, k) => k !== i))}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1">
+                      <Select
+                        value={r.severity}
+                        onValueChange={(v) => {
+                          const c = [...rows];
+                          c[i] = { ...r, severity: v as FindingSeverity };
+                          setRows(c);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {SEVERITY_ORDER.map((s) => (
+                            <SelectItem key={s} value={s}>{s}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={r.state}
+                        onValueChange={(v) => {
+                          const c = [...rows];
+                          c[i] = { ...r, state: v as FindingState };
+                          setRows(c);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(STATE_LABELS) as FindingState[]).map((s) => (
+                            <SelectItem key={s} value={s}>{STATE_LABELS[s]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Input
+                      placeholder="Catégorie"
+                      value={r.category}
+                      onChange={(e) => {
+                        const c = [...rows];
+                        c[i] = { ...r, category: e.target.value };
+                        setRows(c);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={addRow}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Finding
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => createMut.mutate()}
+                  disabled={createMut.isPending}
+                >
+                  {createMut.isPending ? "…" : "Enregistrer"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowNew(false)}>
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          )}
+          {scans.length === 0 && !showNew && (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Aucun scan enregistré.
+            </p>
+          )}
+          {scans.map((s) => {
+            const open = s.summary.byState.open ?? 0;
+            const total = s.summary.total;
+            const isSelected = s.id === selectedId;
+            return (
+              <button
+                key={s.id}
+                onClick={() => setSelectedId(s.id)}
+                className={`w-full text-left border rounded-md p-2 hover:bg-muted/50 transition ${
+                  isSelected ? "border-primary bg-muted/40" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm truncate">
+                    {s.label || "Scan"}
+                  </span>
+                  <Badge variant={open > 0 ? "destructive" : "secondary"}>
+                    {open}/{total} ouvert(s)
+                  </Badge>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {fmtDate(s.created_at)}
+                </div>
+              </button>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader className="flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle>
+              {detail ? detail.label || "Scan" : "Sélectionnez un scan"}
+            </CardTitle>
+            {detail && (
+              <CardDescription>
+                {fmtDate(detail.created_at)} · {detail.summary.total} finding(s)
+              </CardDescription>
+            )}
+          </div>
+          {detail && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (confirm("Supprimer ce scan ?")) deleteMut.mutate(detail.id);
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-1" /> Supprimer
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {!detail && (
+            <p className="text-sm text-muted-foreground text-center py-10">
+              Choisissez un scan dans l'historique pour voir ses findings.
+            </p>
+          )}
+          {detail && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {SEVERITY_ORDER.map((sev) => {
+                  const n = detail.summary.bySeverity[sev] ?? 0;
+                  if (!n) return null;
+                  return (
+                    <span
+                      key={sev}
+                      className={`text-xs px-2 py-0.5 rounded border ${SEVERITY_TONE[sev]}`}
+                    >
+                      {sev}: {n}
+                    </span>
+                  );
+                })}
+                {(Object.keys(STATE_LABELS) as FindingState[]).map((st) => {
+                  const n = detail.summary.byState[st] ?? 0;
+                  if (!n) return null;
+                  return (
+                    <span
+                      key={st}
+                      className={`text-xs px-2 py-0.5 rounded ${STATE_TONE[st]}`}
+                    >
+                      {STATE_LABELS[st]}: {n}
+                    </span>
+                  );
+                })}
+              </div>
+              {detail.notes && (
+                <p className="text-sm text-muted-foreground italic border-l-2 pl-2">
+                  {detail.notes}
+                </p>
+              )}
+              <div className="space-y-2 max-h-[520px] overflow-y-auto">
+                {detail.findings.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    Aucun finding.
+                  </p>
+                )}
+                {[...detail.findings]
+                  .sort(
+                    (a, b) =>
+                      SEVERITY_ORDER.indexOf(a.severity) -
+                      SEVERITY_ORDER.indexOf(b.severity)
+                  )
+                  .map((f: Finding) => (
+                    <div key={f.id} className="border rounded-md p-3 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-medium text-sm">{f.title}</div>
+                          {f.category && (
+                            <div className="text-xs text-muted-foreground">
+                              {f.category}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded border ${SEVERITY_TONE[f.severity]}`}
+                          >
+                            {f.severity}
+                          </span>
+                          <Select
+                            value={f.state}
+                            onValueChange={(v) =>
+                              updateMut.mutate({
+                                findingId: f.id,
+                                state: v as FindingState,
+                              })
+                            }
+                          >
+                            <SelectTrigger className="h-7 w-32 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(Object.keys(STATE_LABELS) as FindingState[]).map((s) => (
+                                <SelectItem key={s} value={s}>
+                                  {STATE_LABELS[s]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      {f.description && (
+                        <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {f.description}
+                        </p>
+                      )}
+                      {f.explanation && (
+                        <p className="text-xs italic text-emerald-700">
+                          → {f.explanation}
+                        </p>
+                      )}
+                      {f.updated_at && (
+                        <p className="text-[10px] text-muted-foreground">
+                          maj {fmtDate(f.updated_at)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
