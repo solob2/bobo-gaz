@@ -69,6 +69,7 @@ import {
   ShieldCheck,
   Trash2,
   XCircle,
+  Shield,
   Zap,
 } from "lucide-react";
 
