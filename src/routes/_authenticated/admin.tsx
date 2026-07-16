@@ -19,6 +19,16 @@ import {
   approveVendorAccount,
   rejectVendorAccount,
 } from "@/lib/vendor.functions";
+import {
+  listSecurityScans,
+  getSecurityScan,
+  createSecurityScan,
+  updateFindingState,
+  deleteSecurityScan,
+  type Finding,
+  type FindingSeverity,
+  type FindingState,
+} from "@/lib/security.functions";
 
 
 import { supabase } from "@/integrations/supabase/client";
