@@ -252,9 +252,6 @@ function AdminPage() {
           </TabsList>
           <TabsContent value="vendors"><VendorAccountsPanel /></TabsContent>
           <TabsContent value="security-scans"><SecurityPanel /></TabsContent>
-            <TabsTrigger value="vendors">Vendeurs</TabsTrigger>
-          </TabsList>
-          <TabsContent value="vendors"><VendorAccountsPanel /></TabsContent>
 
 
           <TabsContent value="orders">
