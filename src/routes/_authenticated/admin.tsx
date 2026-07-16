@@ -245,8 +245,13 @@ function AdminPage() {
             <TabsTrigger value="orders">Commandes</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
             <TabsTrigger value="alert-rules">Règles d'alertes</TabsTrigger>
-            <TabsTrigger value="security">Secrets & sécurité</TabsTrigger>
+            <TabsTrigger value="security-scans">Sécurité</TabsTrigger>
+            <TabsTrigger value="secrets">Secrets</TabsTrigger>
             <TabsTrigger value="health">Santé système</TabsTrigger>
+            <TabsTrigger value="vendors">Vendeurs</TabsTrigger>
+          </TabsList>
+          <TabsContent value="vendors"><VendorAccountsPanel /></TabsContent>
+          <TabsContent value="security-scans"><SecurityPanel /></TabsContent>
             <TabsTrigger value="vendors">Vendeurs</TabsTrigger>
           </TabsList>
           <TabsContent value="vendors"><VendorAccountsPanel /></TabsContent>
