@@ -300,13 +300,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
       is_vendor_owner: {
         Args: { _user_id: string; _vendor_id: string }
         Returns: boolean
