@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { queryOptions, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Clock, ArrowLeft, MessageCircle, MapPin, Phone } from "lucide-react";
@@ -58,6 +58,11 @@ function OrderPage() {
   useEffect(() => {
     if (refresh.data && refresh.data.status !== order.status) refetch();
   }, [refresh.data, order.status, refetch]);
+
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (order.status === "paid") navigate({ to: "/commande/$id/confirmation", params: { id }, replace: true });
+  }, [order.status, id, navigate]);
 
   const wa = `https://wa.me/${order.vendor_whatsapp}?text=${encodeURIComponent(
     `Bonjour, j'ai payé une commande de gaz via GazMap Bobo (réf ${order.id.slice(0, 8)}). Merci de confirmer la livraison à : ${order.customer_address}`,
