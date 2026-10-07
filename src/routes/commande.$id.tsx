@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { queryOptions, useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, XCircle, Clock, ArrowLeft, MessageCircle, MapPin, Phone } from "lucide-react";
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/commande/$id")({
   errorComponent: ({ error }) => (
     <div className="mx-auto max-w-lg p-8 text-center">
       <p className="text-destructive">Impossible de charger cette commande.</p>
-      <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{(error as Error).message}</p>
       <Button asChild variant="outline" className="mt-4">
         <Link to="/"><ArrowLeft className="mr-1 h-4 w-4" /> Retour</Link>
       </Button>
@@ -58,6 +58,11 @@ function OrderPage() {
   useEffect(() => {
     if (refresh.data && refresh.data.status !== order.status) refetch();
   }, [refresh.data, order.status, refetch]);
+
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (order.status === "paid") navigate({ to: "/commande/$id/confirmation", params: { id }, replace: true });
+  }, [order.status, id, navigate]);
 
   const wa = `https://wa.me/${order.vendor_whatsapp}?text=${encodeURIComponent(
     `Bonjour, j'ai payé une commande de gaz via GazMap Bobo (réf ${order.id.slice(0, 8)}). Merci de confirmer la livraison à : ${order.customer_address}`,
