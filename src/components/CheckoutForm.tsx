@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { CreditCard, Loader2, Truck } from "lucide-react";
+import { CreditCard, Loader2, Sparkles, Truck } from "lucide-react";
+import { rewriteDeliveryInstructions } from "@/lib/delivery-ai.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +37,25 @@ export function CheckoutForm({ vendor, onClose }: { vendor: Vendor; onClose: () 
   const deliveryFee = feeForVendor(vendor);
   const subtotal = (bottle?.price ?? 0) * quantity;
   const total = subtotal + deliveryFee;
+
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [previousNotes, setPreviousNotes] = useState<string | null>(null);
+  const rewrite = useMutation({
+    mutationFn: () =>
+      rewriteDeliveryInstructions({
+        data: {
+          vendorId: vendor.id, bottleSize, quantity,
+          customerName: customerName.trim() || undefined,
+          customerAddress: customerAddress.trim() || undefined,
+          rawInstructions: notes.trim(),
+        },
+      }),
+    onSuccess: ({ message }) => {
+      setPreviousNotes(notes);
+      setNotes(message.slice(0, 500));
+    },
+    onError: (err: Error) => setAiError(err.message),
+  });
 
   const mutation = useMutation({
     mutationFn: (input: InitOrderPaymentInput) => initOrderPayment({ data: input }),
@@ -126,8 +146,27 @@ export function CheckoutForm({ vendor, onClose }: { vendor: Vendor; onClose: () 
           <Input id="addr" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} placeholder="Quartier, rue, point de repère" maxLength={200} />
         </div>
         <div>
-          <Label htmlFor="notes">Notes (optionnel)</Label>
-          <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Consigne ancienne bouteille, horaire, etc." maxLength={500} rows={2} />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="notes">Consignes de livraison (optionnel)</Label>
+            <Button
+              type="button" variant="ghost" size="sm" className="h-7 text-xs"
+              disabled={notes.trim().length < 3 || rewrite.isPending}
+              onClick={() => {
+                setAiError(null);
+                rewrite.mutate();
+              }}
+            >
+              {rewrite.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}
+              Reformuler pour le vendeur
+            </Button>
+          </div>
+          <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Écrivez comme vous voulez : repère, horaire, ancienne bouteille à reprendre…" maxLength={500} rows={3} />
+          {previousNotes !== null && (
+            <button type="button" className="mt-1 text-xs text-muted-foreground underline" onClick={() => { setNotes(previousNotes); setPreviousNotes(null); }}>
+              Revenir à mon texte
+            </button>
+          )}
+          {aiError && <p className="mt-1 text-xs text-destructive">{aiError}</p>}
         </div>
       </div>
 
