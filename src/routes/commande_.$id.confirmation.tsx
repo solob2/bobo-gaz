@@ -26,7 +26,7 @@ export const Route = createFileRoute("/commande_/$id/confirmation")({
   errorComponent: ({ error }) => (
     <div className="mx-auto max-w-lg p-8 text-center">
       <p className="text-destructive">Impossible de charger cette commande.</p>
-      <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{(error as Error).message}</p>
       <Button asChild variant="outline" className="mt-4"><Link to="/">Retour</Link></Button>
     </div>
   ),

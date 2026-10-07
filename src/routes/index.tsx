@@ -53,7 +53,7 @@ export const Route = createFileRoute("/")({
   component: Index,
   errorComponent: ({ error }) => (
     <div className="p-8 text-center text-sm text-destructive">
-      Erreur de chargement : {error.message}
+      Erreur de chargement : {(error as Error).message}
     </div>
   ),
 });
